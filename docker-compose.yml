@@ -1,0 +1,37 @@
+# Pocket Backups — backups for the whole box. Go + SQLite, restic and rclone inside. One container, one volume.
+services:
+  pocket-backups:
+    image: ghcr.io/abjelosevic88/pocket-homelab-backups:latest
+    container_name: pocket-backups
+    restart: unless-stopped
+    user: "1000:1000"              # the user that owns your files
+    group_add:
+      - "${DOCKER_GID:-999}"       # getent group docker | cut -d: -f3 — database dumps run docker exec
+    ports:
+      - "8080:8080"
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      BASE_URL: ${BASE_URL:-http://localhost:8080}
+      # SECURE_COOKIES: "true"     # behind HTTPS
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      NOTIFY_URL: ${NOTIFY_URL:-}
+      HOME: /home/you              # ssh keys for SFTP repositories
+      TMP_DIR: /data/tmp           # restic temp packs on disk
+      HOST_ACCESS: "true"          # host commands + USB disks through a short-lived privileged helper
+      HELPER_IMAGE: ghcr.io/abjelosevic88/pocket-homelab-backups:latest
+      # Backrest underneath (optional):
+      # BACKREST_URL: http://host.docker.internal:9898
+      # BACKREST_USER: ${BACKREST_USER}
+      # BACKREST_PASSWORD: ${BACKREST_PASSWORD}
+      # HOOK_BASE_URL: http://127.0.0.1:8080
+      # CORE_URL: http://pocket-core:8080
+      # CORE_REGISTRATION_KEY: ${CORE_REGISTRATION_KEY}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data:/data
+      - /home/you:/home/you:rslave   # what to back up, at the same path as on the host
+      - /mnt:/mnt:rslave             # NAS shares and USB disks (rslave: mounts made later show up)
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /dev/disk:/host/dev/disk:ro  # notices a USB disk being plugged in

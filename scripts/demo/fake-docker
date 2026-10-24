@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+"""A pretend docker CLI for the demo: a few containers for the coverage and discover screens."""
+import json, os, sys
+F = os.environ.get("DEMO_FILES", "/srv")
+C = [
+    ("paperless-webserver-1", "ghcr.io/paperless-ngx/paperless-ngx:2", "paperless", "webserver", F + "/srv/paperless", [("volume", "paperless_data", "/usr/src/paperless/data")]),
+    ("paperless-db-1", "postgres:17", "paperless", "db", F + "/srv/paperless", [("volume", "paperless_pgdata", "/var/lib/postgresql/data")]),
+    ("immich_server", "ghcr.io/immich-app/immich-server:release", "immich", "immich-server", F + "/srv/immich", [("bind", "/mnt/photos", "/usr/src/app/upload")]),
+    ("immich_postgres", "ghcr.io/immich-app/postgres:14-vectorchord", "immich", "database", F + "/srv/immich", []),
+    ("nextcloud", "nextcloud:31-apache", "nextcloud", "app", F + "/srv/nextcloud", [("volume", "nextcloud_html", "/var/www/html")]),
+    ("vaultwarden", "vaultwarden/server:latest", "vaultwarden", "vaultwarden", F + "/srv/vaultwarden", [("bind", F + "/srv/vaultwarden/data", "/data")]),
+    ("homepage", "ghcr.io/gethomepage/homepage:latest", "homepage", "homepage", F + "/srv/homepage", []),
+    ("uptime-kuma", "louislam/uptime-kuma:2", "uptime-kuma", "uptime-kuma", "/opt/uptime-kuma", [("volume", "uptime-kuma_data", "/app/data")]),
+    ("it-tools", "corentinth/it-tools:latest", "it-tools", "it-tools", "/opt/it-tools", []),
+]
+a = sys.argv[1:]
+if a and a[0] == "-H":
+    a = a[2:]
+if a[:1] == ["version"]:
+    print("27.3.1")
+elif a[:1] == ["ps"]:
+    print("\n".join(f"{i:064x}" for i in range(1, len(C) + 1)))
+elif a[:1] == ["volume"]:
+    print("\n".join(m[1] for c in C for m in c[5] if m[0] == "volume"))
+elif a[:1] == ["inspect"] and "-f" in a:
+    fmt = a[a.index("-f") + 1]
+    print("true" if "Running" in fmt else "[]")
+elif a[:1] == ["inspect"]:
+    out = []
+    for name, image, project, service, wd, mounts in C:
+        out.append({"Name": "/" + name, "Config": {"Image": image, "Labels": {"com.docker.compose.project": project, "com.docker.compose.service": service,
+                    "com.docker.compose.project.working_dir": wd}}, "State": {"Status": "running"},
+                    "Mounts": [{"Type": t, "Name": src if t == "volume" else "", "Source": src, "Destination": dst, "RW": True} for t, src, dst in mounts]})
+    print(json.dumps(out))
+else:
+    sys.exit("demo docker: " + " ".join(a))
