@@ -4,7 +4,7 @@ import { api, qs, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
 import { useActions } from '../lib/actions'
 import { useData } from '../lib/data'
-import { ago, cronText, fmtBytes, fmtMs, friendlyTime, until } from '../lib/format'
+import { ago, cronText, fmtBytes, fmtMs, friendlyTime, until, jobWhen } from '../lib/format'
 import type { BackrestInfo, Job, Retention, Run } from '../lib/types'
 import { LiveProgress, RunRow } from '../components/cards'
 import { openCopyEditor, openJobEditor, openSourceEditor } from '../components/dialogs'
@@ -66,7 +66,7 @@ export default function JobPage() {
         <section className="job-head">
           <div className="row wrap">
             {job.engine === 'backrest' ? <Badge lvl="info" icon="archive">Runs on Backrest</Badge> : <Badge lvl="info" icon="shield">Runs on Pocket Backups</Badge>}
-            <span className="muted small"><Icon name="clock" size={12} /> {cronText(job.schedule)}</span>
+            <span className="muted small"><Icon name="clock" size={12} /> {jobWhen(job)}</span>
             {job.next_run && <span className="muted small">next {friendlyTime(job.next_run, h12)} ({until(job.next_run)})</span>}
             <span className="spacer" />
             <label className="inline-switch small"><Switch size="sm" checked={job.enabled} onChange={toggle} label="Switched on" />{job.enabled ? 'On' : 'Off'}</label>
@@ -147,7 +147,7 @@ export default function JobPage() {
 
           <Card title="Schedule and keeping">
             <dl className="kv">
-              <div><dt>When</dt><dd>{cronText(job.schedule)}{job.engine === 'backrest' ? ' (Backrest’s schedule)' : ''}</dd></div>
+              <div><dt>When</dt><dd>{jobWhen(job)}{job.engine === 'backrest' ? ' (Backrest’s schedule)' : ''}</dd></div>
               {job.config.run_on_connect && <div><dt>USB disk</dt><dd>Starts when the disk is plugged in{job.config.run_on_connect_days ? ` (at most every ${job.config.run_on_connect_days} days)` : ''}</dd></div>}
               {job.kind === 'backup' && <div><dt>Keeping</dt><dd>{retentionText(job.config.retention)}{job.config.forget_before_copies ? ', before the copies' : ''}</dd></div>}
               {job.config.staging_dir && <div><dt>Staging</dt><dd><code>{job.config.staging_dir}</code></dd></div>}

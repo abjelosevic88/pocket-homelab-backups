@@ -138,3 +138,9 @@ export const KIND_LABEL: Record<string, string> = {
   backup: 'Backup', prep: 'Before the snapshot', post: 'After the snapshot', check: 'Check', prune: 'Prune', copy: 'Copy', restore: 'Restore',
   pull: 'Cloud pull', source: 'Try a source', hook: 'Backrest', unlock: 'Unlock', init: 'Create', stats: 'Read sizes',
 }
+
+/** When a job runs, in words: its schedule, or "When its disk is plugged in". */
+export function jobWhen(job: { schedule: string; config: { run_on_connect?: boolean } }): string {
+  if (!job.schedule && job.config?.run_on_connect) return 'When its disk is plugged in'
+  return cronText(job.schedule)
+}

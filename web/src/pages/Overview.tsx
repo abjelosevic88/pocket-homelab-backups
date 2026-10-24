@@ -69,6 +69,8 @@ export default function Overview() {
             </section>
           )}
 
+          {isAdmin && (d.jobs?.length || 0) > 0 && <ComingUp />}
+
           {isAdmin && (d.repositories?.length || 0) > 0 && (
             <section>
               <div className="sec-head"><h2>Where backups are kept</h2><Link to="/places" className="small">Places</Link></div>
@@ -87,5 +89,30 @@ export default function Overview() {
         </div>
       )}
     </Shell>
+  )
+}
+
+type Upcoming = { at: string; kind: string; title: string; job_id?: number; repository_id?: number }
+
+// The next few things that run on their own (the full list is on Schedule).
+function ComingUp() {
+  const { version, h12 } = useApp()
+  const sc = useAsync(() => api.get<{ upcoming: Upcoming[] }>(`${V1}/schedule?days=3`), [version])
+  const items = (sc.data?.upcoming || []).slice(0, 5)
+  if (!sc.data) return null
+  return (
+    <Card title={<span className="row"><Icon name="clock" size={16} />Coming up</span>} actions={<Link to="/schedule" className="btn ghost sm">Schedule</Link>} flush>
+      {items.length === 0 ? <div className="card-body muted small">Nothing runs on its own in the next three days.</div> : (
+        <div className="run-list">
+          {items.map((u, i) => (
+            <Link key={i} to={u.job_id ? `/jobs/${u.job_id}` : u.repository_id ? `/places/repositories/${u.repository_id}` : '/schedule'} className="run-row">
+              <Icon name={u.kind === 'check' ? 'shield' : u.kind === 'prune' ? 'trash' : u.kind === 'pull' ? 'download' : 'archive'} size={15} className="muted" />
+              <span className="grow min0 ellipsis">{u.title}</span>
+              <span className="muted small nowrap">{friendlyTime(u.at, h12)}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </Card>
   )
 }

@@ -122,6 +122,11 @@ func (c *Cron) Next(t time.Time) time.Time {
 			t = t.Add(time.Minute)
 			continue
 		}
+		// when the clocks go back an hour repeats: like cron, run once (in the first)
+		if back := t.Add(-time.Hour); back.Hour() == t.Hour() && back.Minute() == t.Minute() && back.Day() == t.Day() {
+			t = t.Add(time.Minute)
+			continue
+		}
 		return t
 	}
 	return time.Time{}

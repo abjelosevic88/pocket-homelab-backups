@@ -234,3 +234,8 @@ div.mini-row:hover { background: none; }
 @media (max-width: 640px) { .hero { padding: 16px; gap: 12px; } .hero h2 { font-size: 17px; } .hero-ico { width: 44px; height: 44px; } .repo-nums { grid-template-columns: 1fr 1fr; } }
 /* single-column grids: the implicit column must not grow to the longest line */
 .run-list, .issues, .steps-list, .job-head, .live, .kv, .sb-nav { grid-template-columns: minmax(0, 1fr); }
+
+/* schedule */
+.sched-day { padding: 12px 18px 4px; font-size: 12px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: .04em; border-top: 1px solid var(--hairline); }
+.sched-day:first-child { border-top: 0; }
+.sched-time { width: 3.6em; font-weight: 550; flex-shrink: 0; }

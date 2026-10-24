@@ -67,6 +67,7 @@ type Server struct {
 
 	diskMu   sync.Mutex
 	diskSeen map[int64]bool
+	fired    map[string]time.Time
 
 	covMu    sync.Mutex
 	lastCov  *coverageReport
@@ -87,7 +88,7 @@ type Server struct {
 func New(cfg *config.Config, st *store.Store, log *slog.Logger, webFS fs.FS) *Server {
 	ua := "PocketBackups/" + Version + " (+https://github.com/abjelosevic88/pocket-homelab-backups)"
 	s := &Server{cfg: cfg, store: st, log: log, webFS: webFS, started: time.Now(),
-		active: map[int64]*activeRun{}, repoLocks: map[int64]*sync.Mutex{}, jobBusy: map[int64]bool{}, diskSeen: map[int64]bool{}}
+		active: map[int64]*activeRun{}, repoLocks: map[int64]*sync.Mutex{}, jobBusy: map[int64]bool{}, diskSeen: map[int64]bool{}, fired: map[string]time.Time{}}
 	s.http = &http.Client{Timeout: 60 * time.Second}
 	s.core = core.New(cfg.CoreURL, core.Options{DB: st.DB, TokenFile: cfg.DataDir + "/core.token", UserAgent: ua, ServiceCache: time.Minute, ServiceStale: 15 * time.Minute})
 	s.oidc = &oidcProvider{issuerURL: cfg.OIDCIssuer}
@@ -324,6 +325,8 @@ func (s *Server) Router() http.Handler {
 
 			r.Get("/backrest", s.handleBackrest)
 			r.Post("/backrest/import", s.handleBackrestImport)
+			r.Post("/backrest/takeover", s.handleBackrestTakeover)
+			r.Get("/schedule", s.handleSchedule)
 			r.Get("/backrest/hooks", s.handleBackrestHooks)
 			r.Post("/backrest/hooks", s.handleBackrestHooks)
 

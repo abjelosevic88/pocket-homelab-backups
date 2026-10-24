@@ -59,6 +59,7 @@ for w in range(3):
          {"name": "Copy Shared with me", "status": "ok", "ms": 650_000, "detail": "→ /mnt/nas/gdrive/shared-with-me"}])
 for (cid,) in db.execute("SELECT id FROM copies").fetchall():
     db.execute("UPDATE copies SET last_ok_at=? WHERE id=?", (iso(now.replace(hour=1, minute=16) if now.hour >= 2 else now - timedelta(hours=10)), cid))
+db.execute("UPDATE repositories SET check_schedule='0 2 * * 0', check_read_pct=10, prune_schedule='45 4 * * 0' WHERE name='This box'")
 db.execute("INSERT OR REPLACE INTO coverage_skips (project, reason) VALUES ('it-tools', 'stateless: nothing to keep')")
 db.commit()
 print("dressed")

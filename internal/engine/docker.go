@@ -141,6 +141,9 @@ func (e *Engine) ExportVolume(ctx context.Context, volume string, out Output, lo
 	}
 	_, err = e.run(ctx, cmdSpec{name: e.DockerBin, args: e.dockerArgs("run", "--rm", "--network", "none", "-u", "0", "-v", volume+":/data:ro",
 		"--entrypoint", "tar", e.helper(), "czf", "-", "-C", "/data", "."), stdout: f, log: log})
+	if ExitCode(err) == 1 {
+		err = nil // "file changed as we read it": a live database in the volume; the archive is still whole
+	}
 	n, ferr := f.finish(err == nil)
 	if err == nil {
 		err = ferr

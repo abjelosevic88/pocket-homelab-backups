@@ -32,3 +32,17 @@ Pocket Backups also reads Backrest's operation log every five minutes and tells 
 a warning or an error that no hook reported.
 
 **Run now** on a Backrest job asks Backrest to run the plan; the steps before and after appear as their own runs.
+
+## Moving off Backrest
+
+**Backrest → Run them here instead** takes every plan a job runs on over:
+
+- the job gets the plan's folders, excludes, schedule (Backrest's cron, in the box's time zone) and retention, and a
+  `plan:<id>` tag so retention keeps counting Backrest's older snapshots too;
+- each repository gets its check (with the same share of data read) and prune schedules, and is managed here;
+- Backrest's last backup of the plan is kept as a run, so "last good backup" stays true;
+- in Backrest the plans are switched off (schedule disabled, hooks removed, the repositories' checks and prunes
+  disabled), so nothing runs twice. Backrest can then be stopped; the restic repositories are untouched and the next
+  snapshot continues from Backrest's last one.
+
+Everything that now runs on its own is on the **Schedule** page.

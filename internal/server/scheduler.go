@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/abjelosevic88/pocket-homelab-backups/internal/engine"
@@ -39,6 +40,18 @@ func (s *Server) scheduler(ctx context.Context) {
 	}
 }
 
+// firedRecently guards against starting the same thing twice in an hour:
+// when the clocks go back, 02:00-03:00 happens twice.
+func (s *Server) firedRecently(key string, now time.Time) bool {
+	s.diskMu.Lock()
+	defer s.diskMu.Unlock()
+	if t, ok := s.fired[key]; ok && now.Sub(t) < 65*time.Minute {
+		return true
+	}
+	s.fired[key] = now
+	return false
+}
+
 func due(schedule string, prev, now time.Time) bool {
 	if schedule == "" {
 		return false
@@ -58,7 +71,7 @@ func (s *Server) dueJobs(ctx context.Context, prev, now time.Time) {
 	}
 	for i := range jobs {
 		j := &jobs[i]
-		if !j.Enabled || j.Engine == "backrest" || !due(j.Schedule, prev, now) {
+		if !j.Enabled || j.Engine == "backrest" || !due(j.Schedule, prev, now) || s.firedRecently(fmt.Sprintf("job:%d", j.ID), now) {
 			continue
 		}
 		if _, err := s.StartJob(ctx, j, "schedule", 0); err != nil {
@@ -79,12 +92,12 @@ func (s *Server) dueRepos(ctx context.Context, prev, now time.Time) {
 		if x.ManagedBy == "backrest" {
 			continue
 		}
-		if due(x.CheckSchedule, prev, now) {
+		if due(x.CheckSchedule, prev, now) && !s.firedRecently(fmt.Sprintf("check:%d", x.ID), now) {
 			if _, err := s.StartRepoTask(ctx, x, "check", "schedule", 0, 0); err != nil {
 				s.log.Warn("scheduled check did not start", "repository", x.Name, "err", err)
 			}
 		}
-		if due(x.PruneSchedule, prev, now) {
+		if due(x.PruneSchedule, prev, now) && !s.firedRecently(fmt.Sprintf("prune:%d", x.ID), now) {
 			if _, err := s.StartRepoTask(ctx, x, "prune", "schedule", 0, 0); err != nil {
 				s.log.Warn("scheduled prune did not start", "repository", x.Name, "err", err)
 			}

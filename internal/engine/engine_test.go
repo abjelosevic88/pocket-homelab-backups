@@ -55,3 +55,16 @@ func contains(s, sub string) bool {
 		return false
 	})()
 }
+
+func TestCronRepeatedHourRunsOnce(t *testing.T) {
+	loc, err := time.LoadLocation("Europe/Sarajevo")
+	if err != nil {
+		t.Skip("no zoneinfo")
+	}
+	c, _ := ParseCron("0 2 * * *")
+	first := c.Next(time.Date(2026, 10, 24, 17, 0, 0, 0, loc)) // the night the clocks go back
+	second := c.Next(first)
+	if first.UTC().Hour() != 0 || second.Sub(first) < 24*time.Hour {
+		t.Fatalf("02:00 on 25 Oct should come once: %s then %s", first.UTC(), second.UTC())
+	}
+}

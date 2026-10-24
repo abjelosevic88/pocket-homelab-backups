@@ -203,7 +203,8 @@ func (s *Server) coverageStep(ctx context.Context) (string, string, error) {
 	msg := "not covered by any backup: " + strings.Join(names, ", ")
 	s.notifyAdmins(ctx, "failure", "Backup coverage warning",
 		"These running containers are NOT covered by backups — new app? Add a source for them in Pocket Backups, or mark them skipped: "+strings.Join(names, ", "), "warning")
-	return msg, "warning", nil
+	// told separately (notification + the overview); the backup itself is fine
+	return msg, "ok", nil
 }
 
 func (s *Server) handleCoverage(w http.ResponseWriter, r *http.Request) {

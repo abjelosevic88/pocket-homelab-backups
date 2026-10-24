@@ -24,7 +24,10 @@ export default function Backrest() {
   const [importing, setImporting] = useState(false)
   const [preview, setPreview] = useState<HookChange[] | null>(null)
   const [installing, setInstalling] = useState(false)
+  const [takeover, setTakeover] = useState(false)
+  const [taking, setTaking] = useState(false)
   const d = br.data
+  const backrestJobs = jobs.filter(j => j.engine === 'backrest')
 
   const doImport = async () => {
     setImporting(true)
@@ -38,10 +41,19 @@ export default function Backrest() {
     try { await api.post(`${V1}/backrest/hooks`); toast('Hooks installed in Backrest'); setPreview(null); br.reload() } catch (e) { toast(errMsg(e), 'err') } finally { setInstalling(false) }
   }
 
+  const doTakeover = async () => {
+    setTaking(true)
+    try {
+      const r = await api.post<{ taken_over: { plan: string }[] }>(`${V1}/backrest/takeover`, {})
+      toast(`Pocket Backups now runs ${r.taken_over.length} plan(s) itself`); setTakeover(false); await reload(); bump(); br.reload()
+    } catch (e) { toast(errMsg(e), 'err') } finally { setTaking(false) }
+  }
+
   return (
     <Shell title="Backrest" loading={br.loading && !!d} controls={d?.configured ? <>
       <button className="btn sm" disabled={importing} onClick={doImport}>{importing ? <Spinner /> : <Icon name="download" size={13} />}Import from Backrest</button>
-      <button className="btn primary sm" onClick={showHooks}><Icon name="link" size={13} />Install hooks</button>
+      <button className="btn sm" onClick={showHooks}><Icon name="link" size={13} />Install hooks</button>
+      <button className="btn primary sm" disabled={backrestJobs.length === 0} onClick={() => setTakeover(true)}><Icon name="rotate" size={13} />Run them here instead</button>
       {d.url && <a className="btn ghost sm" href={d.url.replace('127.0.0.1', location.hostname)} target="_blank" rel="noreferrer"><Icon name="external" size={13} />Open Backrest</a>}
     </> : undefined}>
       {!d ? <Loading /> : !d.configured ? (
@@ -94,6 +106,20 @@ export default function Backrest() {
             </Card>
           )}
         </div>
+      )}
+      {takeover && (
+        <Modal title="Run these plans in Pocket Backups" onClose={() => setTakeover(false)} footer={<>
+          <button className="btn" onClick={() => setTakeover(false)}>Cancel</button>
+          <button className="btn primary" disabled={taking} onClick={doTakeover}>{taking && <Spinner />}Take over {backrestJobs.length} plan(s)</button>
+        </>}>
+          <div className="stack">
+            <p className="muted small" style={{ margin: 0 }}>Pocket Backups will make the snapshots itself, with the same restic repositories (nothing is copied):</p>
+            <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>
+              {backrestJobs.map(j => <li key={j.id}><b>{j.name}</b> — plan {j.backrest_plan}</li>)}
+            </ul>
+            <p className="muted small" style={{ margin: 0 }}>Each job gets the plan’s folders, excludes, schedule and retention; each repository its check and prune schedules. Backrest’s last backup is kept as a run. In Backrest the plans are switched off (schedule disabled, hooks removed) so nothing runs twice — Backrest itself can then be stopped.</p>
+          </div>
+        </Modal>
       )}
       {preview && (
         <Modal title="Install hooks in Backrest" onClose={() => setPreview(null)} size="xl" footer={<>

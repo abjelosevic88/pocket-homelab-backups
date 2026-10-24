@@ -12,6 +12,7 @@ const NAV: [string, string, string][] = [
   ['/sources', 'shield', 'What’s protected'],
   ['/places', 'hard-drive', 'Places'],
   ['/restore', 'rotate', 'Restore'],
+  ['/schedule', 'clock', 'Schedule'],
   ['/runs', 'history', 'Runs'],
   ['/coverage', 'layers', 'Coverage'],
   ['/backrest', 'archive', 'Backrest'],

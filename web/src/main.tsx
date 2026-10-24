@@ -19,6 +19,7 @@ import Places from './pages/Places'
 import RepoPage from './pages/RepoPage'
 import Restore from './pages/Restore'
 import Runs from './pages/Runs'
+import Schedule from './pages/Schedule'
 import RunPage from './pages/RunPage'
 import Coverage from './pages/Coverage'
 import Backrest from './pages/Backrest'
@@ -50,6 +51,7 @@ function App() {
         <Route path="/places" element={page('places', <Places />)} />
         <Route path="/places/repositories/:id" element={page('repository', <RepoPage />)} />
         <Route path="/restore" element={page('restore', <Restore />)} />
+        <Route path="/schedule" element={page('schedule', <Schedule />)} />
         <Route path="/runs" element={page('runs', <Runs />)} />
         <Route path="/runs/:id" element={page('run', <RunPage />)} />
         <Route path="/coverage" element={page('coverage', <Coverage />)} />

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
 import { useActions } from '../lib/actions'
-import { ago, cronText, fmtBytes, fmtMs, friendlyTime, KIND_LABEL, until } from '../lib/format'
+import { ago, cronText, fmtBytes, fmtMs, friendlyTime, KIND_LABEL, until, jobWhen } from '../lib/format'
 import type { Connection, Job, Repository, Run, RunDetail } from '../lib/types'
 import { CONN_ICON, CONN_NAME } from '../pages/connKinds'
 import { Icon } from './icons'
@@ -43,7 +43,7 @@ export function JobCard({ job }: { job: Job }) {
         {!job.enabled && <Badge lvl="off">Off</Badge>}
       </div>
       <div className="job-meta muted small">
-        <span><Icon name="clock" size={12} />{cronText(job.schedule)}</span>
+        <span><Icon name="clock" size={12} />{jobWhen(job)}</span>
         {job.next_run && <span>next {friendlyTime(job.next_run, h12)} ({until(job.next_run)})</span>}
       </div>
       {job.running ? <LiveProgress runId={job.running} /> : last ? (

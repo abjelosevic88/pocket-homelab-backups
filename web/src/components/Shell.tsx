@@ -21,6 +21,7 @@ const PAGES: [string, string, string, string, string][] = [
   ['/sources', 'What’s protected', 'shield', 'w', 'sources databases folders volumes'],
   ['/places', 'Places', 'hard-drive', 'p', 'repositories connections clouds nas usb google drive b2'],
   ['/restore', 'Restore', 'rotate', 'r', 'snapshots files get back'],
+  ['/schedule', 'Schedule', 'clock', 'u', 'when next run upcoming cron times checks prunes'],
   ['/runs', 'Runs', 'history', 'h', 'history log'],
   ['/coverage', 'Coverage', 'layers', 'c', 'containers apps not covered'],
   ['/backrest', 'Backrest', 'archive', 'b', 'plans hooks'],

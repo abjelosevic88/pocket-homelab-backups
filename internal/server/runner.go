@@ -318,7 +318,18 @@ func (s *Server) backupPaths(ctx context.Context, job *store.Job) (paths, exclud
 		}
 	}
 	if staging {
-		add(s.stagingDir(job))
+		// unless the job already names what it wants from the staging folder
+		// (a Backrest plan taken over backs up only its own dump)
+		dir := filepath.Clean(s.stagingDir(job))
+		named := false
+		for _, p := range paths {
+			if underAny(p, []string{dir}) {
+				named = true
+			}
+		}
+		if !named {
+			add(dir)
+		}
 	}
 	sort.Strings(paths)
 	return paths, excludes
@@ -416,7 +427,8 @@ func (s *Server) afterSnapshot(rn *runner, job *store.Job, repo *store.Repositor
 	if !ret.Empty() {
 		rn.soft("Retention", func() (string, string, error) {
 			err := s.eng.Forget(ctx, spec, engine.ForgetPolicy{KeepLast: ret.KeepLast, KeepHourly: ret.KeepHourly, KeepDaily: ret.KeepDaily,
-				KeepWeekly: ret.KeepWeekly, KeepMonthly: ret.KeepMonthly, KeepYearly: ret.KeepYearly, GroupByNone: ret.GroupByNone, Prune: ret.Prune}, rn.log)
+				KeepWeekly: ret.KeepWeekly, KeepMonthly: ret.KeepMonthly, KeepYearly: ret.KeepYearly, GroupByNone: ret.GroupByNone, Prune: ret.Prune,
+				Tags: []string{retentionTag(job)}}, rn.log)
 			return retentionText(ret), "ok", err
 		})
 	}
@@ -607,8 +619,18 @@ func (s *Server) runSummary(rn *runner, repo *store.Repository, failedSources []
 	return strings.Join(parts, " · ")
 }
 
+// retentionTag is the tag retention applies to: only this job's snapshots
+// (its first own tag — "plan:nightly" for a job taken over from Backrest, so
+// Backrest's older snapshots count too — else "job:<id>").
+func retentionTag(job *store.Job) string {
+	if len(job.Config.Tags) > 0 && job.Config.Tags[0] != "" {
+		return job.Config.Tags[0]
+	}
+	return fmt.Sprintf("job:%d", job.ID)
+}
+
 func retentionText(r store.Retention) string {
-	if r.KeepAll {
+	if r.Empty() {
 		return "keep everything"
 	}
 	var p []string
