@@ -13,7 +13,11 @@ jobs:
       - uses: actions/setup-go@v5
         with: { go-version-file: go.mod, cache: true }
       - name: Install restic and rclone (end-to-end test)
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq restic rclone
+        run: |
+          # the same restic as the image (Ubuntu's package is too old for restore --overwrite)
+          curl -fsSL https://github.com/restic/restic/releases/download/v0.19.1/restic_0.19.1_linux_amd64.bz2 | bunzip2 | sudo tee /usr/local/bin/restic >/dev/null
+          sudo chmod 755 /usr/local/bin/restic && restic version
+          sudo apt-get update -qq && sudo apt-get install -y -qq rclone
       - name: Build web UI
         run: cd web && npm ci --no-audit --no-fund && npm run build
       - name: Vet & test
