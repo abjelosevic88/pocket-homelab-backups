@@ -26,7 +26,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <div className="sb-brand">
         <img src="/favicon.svg" alt="" className="sb-logo" />
         <span className="sb-title">{status?.title && status.title !== 'Pocket Backups' ? status.title : <>Pocket <b>Backups</b></>}</span>
-        {status?.version && <span className="sb-version" title={`Version ${status.version}`}>{/^\d/.test(status.version) ? 'v' + status.version : status.version}</span>}
+        {status?.version && <span className="sb-version" title={`Version ${status.version}`}>{/^v?\d+\.\d+/.test(status.version) ? 'v' + status.version.replace(/^v/, '').replace(/[-+].*$/, '') : status.version}</span>}
       </div>
       {isAdmin && <button type="button" className="btn primary create-btn" onClick={() => { onNavigate?.(); openJobEditor() }}><Icon name="plus" size={17} strokeWidth={2.2} />New job<kbd className="kbd-on-primary">N</kbd></button>}
 
