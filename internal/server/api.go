@@ -1272,8 +1272,12 @@ func (s *Server) handleWidget(w http.ResponseWriter, r *http.Request) {
 	if t := store.ParseTime(last); !t.IsZero() {
 		ago = humanAgo(time.Since(t))
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"health": health, "issues": len(issues), "failing": failing, "last_backup": last,
-		"last_backup_ago": ago, "jobs": len(jobs), "repositories": len(repos), "stored": engine.HumanBytes(size)})
+	out := map[string]any{"health": health, "issues": len(issues), "failing": failing, "last_backup": last,
+		"last_backup_ago": ago, "jobs": len(jobs), "repositories": len(repos), "stored": engine.HumanBytes(size)}
+	if u := userFrom(ctx); u != nil && u.Role == "admin" {
+		out["attention"] = issues // what the issues are (members only see how many)
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func humanAgo(d time.Duration) string {

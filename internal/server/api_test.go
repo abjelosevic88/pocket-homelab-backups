@@ -128,7 +128,7 @@ func TestMembersOnlySeeHealth(t *testing.T) {
 	h, s := newHarness(t)
 	admin := h.user(s, "owner@example.com", "admin")
 	member := h.user(s, "member@example.com", "member")
-	for _, p := range []string{"/jobs", "/repositories", "/sources", "/connections", "/runs", "/coverage", "/backrest", "/browse", "/integrations"} {
+	for _, p := range []string{"/jobs", "/repositories", "/sources", "/connections", "/runs", "/coverage", "/coverage/summary", "/backrest", "/browse", "/integrations"} {
 		if code := h.do(member, "GET", p, nil, nil); code != http.StatusForbidden {
 			t.Errorf("member GET %s = %d, want 403", p, code)
 		}
@@ -145,6 +145,24 @@ func TestMembersOnlySeeHealth(t *testing.T) {
 	}
 	if code := h.do(admin, "GET", "/jobs", nil, nil); code != 200 {
 		t.Errorf("admin jobs = %d", code)
+	}
+	var cov map[string]any
+	if code := h.do(admin, "GET", "/coverage/summary?status=uncovered", nil, &cov); code != 200 {
+		t.Errorf("admin coverage summary = %d", code)
+	} else if _, ok := cov["apps"].([]any); !ok {
+		t.Errorf("coverage summary has no apps list: %v", cov)
+	}
+	if code := h.do(admin, "GET", "/coverage/summary?status=maybe", nil, nil); code != http.StatusBadRequest {
+		t.Errorf("bad coverage status = %d, want 400", code)
+	}
+	var wm, wa map[string]any
+	h.do(member, "GET", "/widget", nil, &wm)
+	h.do(admin, "GET", "/widget", nil, &wa)
+	if _, ok := wm["attention"]; ok {
+		t.Error("a member must not see what the issues are")
+	}
+	if _, ok := wa["attention"]; !ok {
+		t.Error("the admin widget lists the issues")
 	}
 }
 

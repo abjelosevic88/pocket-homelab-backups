@@ -218,6 +218,48 @@ func (s *Server) handleCoverage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, rep)
 }
 
+// handleCoverageSummary is the coverage check without mounts: one row per
+// app with its containers and what covers it. Pocket Ask's tool reads this
+// ("which apps are not backed up?"); status = covered, skipped or uncovered.
+func (s *Server) handleCoverageSummary(w http.ResponseWriter, r *http.Request) {
+	if !s.requireAdmin(w, r) {
+		return
+	}
+	want := strings.TrimSpace(r.URL.Query().Get("status"))
+	if want != "" && want != "covered" && want != "skipped" && want != "uncovered" {
+		writeErr(w, http.StatusBadRequest, "status is covered, skipped or uncovered")
+		return
+	}
+	rep := s.coverage(r.Context())
+	type app struct {
+		App              string   `json:"app"`
+		Status           string   `json:"status"`
+		Containers       []string `json:"containers"`
+		Folder           string   `json:"folder,omitempty"`
+		CoveredBy        []string `json:"covered_by,omitempty"`
+		SkipReason       string   `json:"skip_reason,omitempty"`
+		UncoveredVolumes []string `json:"uncovered_volumes,omitempty"`
+	}
+	apps := []app{}
+	for _, p := range rep.Projects {
+		if want != "" && p.Status != want {
+			continue
+		}
+		a := app{App: p.Project, Status: p.Status, Containers: []string{}, Folder: p.WorkingDir, CoveredBy: p.By, SkipReason: p.Reason}
+		for _, c := range p.Containers {
+			a.Containers = append(a.Containers, c.Name)
+		}
+		for _, v := range p.Volumes {
+			if !v.Covered {
+				a.UncoveredVolumes = append(a.UncoveredVolumes, v.Name)
+			}
+		}
+		apps = append(apps, a)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"covered": rep.Covered, "skipped": rep.Skipped, "uncovered": rep.Uncovered, "apps": apps,
+		"error": rep.Error, "checks": "running Docker containers, grouped by compose project; apps running outside Docker are not checked"})
+}
+
 // coverageChanged recomputes the coverage picture shortly after sources,
 // jobs or skips change (debounced).
 func (s *Server) coverageChanged() {

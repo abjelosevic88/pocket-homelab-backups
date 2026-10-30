@@ -321,6 +321,7 @@ func (s *Server) Router() http.Handler {
 			r.Post("/runs/{id}/cancel", s.handleCancelRun)
 
 			r.Get("/coverage", s.handleCoverage)
+			r.Get("/coverage/summary", s.handleCoverageSummary)
 			r.Post("/coverage/skip", s.handleCoverageSkip)
 
 			r.Get("/backrest", s.handleBackrest)
