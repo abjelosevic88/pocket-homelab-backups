@@ -18,6 +18,8 @@ import (
 // scopes. Every route not listed in linkRoutes stays closed to it.
 
 var linkOffers = []core.Offer{
+	{Scope: "jobs:read", Name: "See scheduled jobs", Description: "List the backups, repository checks and prunes this app runs on a schedule, when they ran, how it went and when they run next (admins only)."},
+	{Scope: "jobs:run", Name: "Run jobs now", Description: "Start one of those backups, checks or prunes right away (admins only)."},
 	{Scope: "backups:read", Name: "See whether the box is backed up", Description: "Read the backup status (healthy or not, when the last good backup was, what needs attention) — what Pocket Hub shows as a tile and Pocket Day notes when a backup failed."},
 }
 
@@ -35,6 +37,9 @@ type linkRoute struct {
 var linkRoutes = []linkRoute{
 	{"GET", regexp.MustCompile(`^/api/v1/auth/me$`), ""},
 	{"GET", regexp.MustCompile(`^/api/v1/(overview|widget|changes)$`), "backups:read"},
+	// Pocket Monitoring's Jobs tab (docs/jobs.md in pocket-homelab-monitoring)
+	{"GET", regexp.MustCompile(`^/api/v1/scheduled-jobs$`), "jobs:read"},
+	{"POST", regexp.MustCompile(`^/api/v1/scheduled-jobs/[a-z0-9-]+/run$`), "jobs:run"},
 }
 
 var errLinkScope = errors.New("outside the link's scope")

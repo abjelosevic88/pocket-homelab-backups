@@ -306,6 +306,8 @@ func (s *Server) Router() http.Handler {
 			r.Post("/sources/{id}/run", s.handleRunSource)
 			r.Get("/discover", s.handleDiscover)
 
+			r.Get("/scheduled-jobs", s.handleJobsContract)
+			r.Post("/scheduled-jobs/{id}/run", s.handleRunJobContract)
 			r.Get("/jobs", s.handleListJobs)
 			r.Post("/jobs", s.handleSaveJob)
 			r.Get("/jobs/{id}", s.handleGetJob)
