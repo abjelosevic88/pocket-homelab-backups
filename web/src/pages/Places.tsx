@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
 import { useData } from '../lib/data'
-import { ago, fmtBytes } from '../lib/format'
-import type { About, Connection, Importable } from '../lib/types'
+import { ago, fmtBytes, friendlyTime } from '../lib/format'
+import type { About, Connection, Importable, StoredItem } from '../lib/types'
 import { RepoCard } from '../components/cards'
 import { openConnEditor, openRepoEditor } from '../components/dialogs'
 import { Icon } from '../components/icons'
@@ -24,6 +24,44 @@ function connDetail(c: Connection): string {
     case 'pocketfiles': return x.account ? `as ${x.account}` : ''
     default: return x.account || ''
   }
+}
+
+const STORED_WHAT: Record<StoredItem['kind'], string> = { repository: 'repository', mirror: 'mirror copy', pull: 'pulled to this box' }
+
+/** What Pocket Backups keeps on a connection and how big it is. */
+function ConnStored({ items }: { items: StoredItem[] }) {
+  const { h12 } = useApp()
+  const kept = items.filter(i => i.kind !== 'pull')
+  const head = kept.length ? kept : items
+  const est = head.some(i => i.estimated)
+  const total = head.reduce((n, i) => n + i.size, 0)
+  const newest = head.map(i => i.at).filter(Boolean).sort().pop() || ''
+  return (
+    <>
+      <div className="repo-nums">
+        <div title={est ? 'Not measured there yet: the size of the repository it copies' : undefined}>
+          <b className="tnum">{total > 0 ? `${est ? '≈ ' : ''}${fmtBytes(total)}` : '–'}</b>
+          <span>{!items.length ? 'no backups here' : kept.length ? 'backups here' : 'pulled to this box'}</span>
+        </div>
+        <div><b className="tnum">{items.length ? head.length : '–'}</b><span>{kept.length || !items.length ? 'stored' : 'pulls'}</span></div>
+        <div><b>{newest ? friendlyTime(newest, h12) : '–'}</b><span>newest</span></div>
+      </div>
+      {items.length > 0 && (
+        <ul className="conn-stored">
+          {items.map((i, n) => {
+            const to = i.kind === 'repository' && i.repository_id ? `/places/repositories/${i.repository_id}` : i.job_id ? `/jobs/${i.job_id}` : ''
+            const label = <>{i.name} <span className="muted">· {STORED_WHAT[i.kind]}</span></>
+            return (
+              <li key={n} title={i.path}>
+                {to ? <Link to={to} className="ellipsis grow min0">{label}</Link> : <span className="ellipsis grow min0">{label}</span>}
+                <span className="tnum muted">{i.size > 0 ? `${i.estimated ? '≈ ' : ''}${fmtBytes(i.size)}` : '–'}</span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </>
+  )
 }
 
 export default function Places() {
@@ -87,6 +125,7 @@ export default function Places() {
                       ]}><Icon name="more" size={15} /></MenuButton>
                     </div>
                     <div className="mono xsmall muted ellipsis">{connDetail(c) || ' '}</div>
+                    <ConnStored items={c.stored || []} />
                     <div className="row wrap">
                       {c.status === 'ok' ? <Badge lvl="ok" icon="check-circle">Answers</Badge> : c.status === 'error' ? <Badge lvl="crit" icon="x-circle" title={c.last_error}>Does not answer</Badge> : <Badge lvl="off">Not tested</Badge>}
                       {c.checked_at && <span className="muted xsmall">checked {ago(c.checked_at)}</span>}

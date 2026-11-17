@@ -283,6 +283,7 @@ type Copy struct {
 	LastOKAt           string      `json:"last_ok_at"`
 	LastError          string      `json:"last_error"`
 	LastDurationMS     int64       `json:"last_duration_ms"`
+	LastSize           int64       `json:"last_size"` // bytes it takes up there, measured after the last good mirror
 	CreatedAt          string      `json:"created_at"`
 }
 

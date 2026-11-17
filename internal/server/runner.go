@@ -498,9 +498,18 @@ func (s *Server) runCopies(rn *runner, job *store.Job, repo *store.Repository, s
 	for _, c := range copies {
 		c := c
 		t := time.Now()
+		c.LastSize = 0
 		err := rn.soft("Copy to "+c.Name, func() (string, string, error) { return s.doCopy(ctx, &c, repo, spec, rn.log) })
-		s.store.SetCopyResult(ctx, c.ID, err == nil, errText(err), time.Since(t))
+		s.store.SetCopyResult(ctx, c.ID, err == nil, errText(err), time.Since(t), c.LastSize)
 	}
+}
+
+// measure returns the size of a folder here or on a connection, giving up
+// after a few minutes (a measure must never hold a run up for long).
+func (s *Server) measure(ctx context.Context, path string) (int64, error) {
+	c, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+	return s.eng.Size(c, path)
 }
 
 func errText(err error) string {
@@ -551,8 +560,15 @@ func (s *Server) doCopy(ctx context.Context, c *store.Copy, repo *store.Reposito
 		if o.Transfers == 0 {
 			o.Transfers = 4
 		}
-		err := s.eng.Sync(ctx, strings.TrimRight(repo.Path, "/"), dst, o, log)
-		return dst, "ok", err
+		if err := s.eng.Sync(ctx, strings.TrimRight(repo.Path, "/"), dst, o, log); err != nil {
+			return dst, "ok", err
+		}
+		// what the mirror takes up there, for the Places page (best effort)
+		if n, err := s.measure(ctx, dst); err == nil && n > 0 {
+			c.LastSize = n
+			return dst + " · " + engine.HumanBytes(n), "ok", nil
+		}
+		return dst, "ok", nil
 	}
 }
 
@@ -752,10 +768,31 @@ func (s *Server) runPull(rn *runner, job *store.Job) {
 			return "→ " + p.SharedPath, "ok", s.eng.Sync(ctx, remotePath(conn, ""), p.SharedPath, so, rn.log)
 		})
 	}
+	if rn.status() != "failed" {
+		// how much the pulled copy takes up here, for the Places page
+		rn.step("Measure", func() (string, string, error) { //nolint:errcheck
+			var total int64
+			for _, dir := range []string{p.LocalPath, map[bool]string{true: p.SharedPath}[p.SharedWithMe && conn.Kind == "gdrive"]} {
+				if dir == "" {
+					continue
+				}
+				n, err := s.measure(ctx, dir)
+				if err != nil { // only a number for the Places page: never a warning
+					return "could not measure " + dir + ": " + err.Error(), "skipped", nil
+				}
+				total += n
+			}
+			rn.run.BytesTotal = total
+			return engine.HumanBytes(total) + " here", "ok", nil
+		})
+	}
 	if job.Config.HeartbeatURL != "" && rn.status() != "failed" {
 		rn.soft("Heartbeat", func() (string, string, error) { return "pinged", "ok", s.heartbeat(ctx, job.Config.HeartbeatURL, "") })
 	}
 	summary := "copied " + conn.Name + " to " + p.LocalPath
+	if rn.run.BytesTotal > 0 {
+		summary += " (" + engine.HumanBytes(rn.run.BytesTotal) + ")"
+	}
 	rn.finish("", summary, nil)
 	s.notifyRun(job, rn.run, summary)
 }

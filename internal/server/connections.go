@@ -158,7 +158,105 @@ func (s *Server) handleListConnections(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err, "connections")
 		return
 	}
-	writeJSON(w, http.StatusOK, list)
+	stored := s.storedOn(r.Context(), list)
+	out := make([]connOut, len(list))
+	for i, c := range list {
+		out[i] = connOut{Connection: c, Stored: stored[c.ID]}
+		if out[i].Stored == nil {
+			out[i].Stored = []storedItem{}
+		}
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+type connOut struct {
+	store.Connection
+	Stored []storedItem `json:"stored"`
+}
+
+// storedItem is one thing Pocket Backups keeps on (or pulls from) a connection.
+type storedItem struct {
+	Kind         string `json:"kind"` // repository | mirror | pull
+	Name         string `json:"name"`
+	Path         string `json:"path"`
+	Size         int64  `json:"size"`      // bytes; 0 = not known yet
+	Estimated    bool   `json:"estimated"` // a mirror not measured yet: the size of what it copies
+	At           string `json:"at"`        // when it last changed
+	RepositoryID int64  `json:"repository_id,omitempty"`
+	JobID        int64  `json:"job_id,omitempty"`
+}
+
+// storedOn says, per connection, which repositories, mirror copies and pulls
+// live there and how big they are — without asking the clouds (that is slow
+// and costs API calls): repositories have their stats, mirrors are measured
+// after each copy, pulls after each pull.
+func (s *Server) storedOn(ctx context.Context, conns []store.Connection) map[int64][]storedItem {
+	out := map[int64][]storedItem{}
+	repos, err := s.store.ListRepositories(ctx)
+	if err != nil {
+		return out
+	}
+	byID := map[int64]*store.Repository{}
+	for i := range repos {
+		rp := &repos[i]
+		byID[rp.ID] = rp
+		for _, c := range conns {
+			if (rp.ConnectionID != nil && *rp.ConnectionID == c.ID) || (rp.ConnectionID == nil && uriOnConn(rp, &c)) {
+				out[c.ID] = append(out[c.ID], storedItem{Kind: "repository", Name: rp.Name, Path: rp.Path, Size: rp.Stats.Size, At: rp.Stats.Latest, RepositoryID: rp.ID})
+				break
+			}
+		}
+	}
+	jobs, err := s.store.ListJobs(ctx)
+	if err != nil {
+		return out
+	}
+	for _, j := range jobs {
+		if j.Kind == "pull" && j.Config.Pull != nil && j.Config.Pull.ConnectionID > 0 {
+			it := storedItem{Kind: "pull", Name: j.Name, Path: j.Config.Pull.LocalPath, JobID: j.ID}
+			if run, err := s.store.LastGoodRun(ctx, j.ID, "pull"); err == nil && run != nil {
+				it.Size, it.At = run.BytesTotal, run.FinishedAt
+			}
+			out[j.Config.Pull.ConnectionID] = append(out[j.Config.Pull.ConnectionID], it)
+			continue
+		}
+		for _, c := range j.Copies {
+			if c.Mode == "restic" || c.ConnectionID == nil {
+				continue // a restic copy lands in a repository, which is listed itself
+			}
+			it := storedItem{Kind: "mirror", Name: c.Name, Path: c.Path, Size: c.LastSize, At: c.LastOKAt, JobID: j.ID}
+			if j.RepositoryID != nil {
+				if rp := byID[*j.RepositoryID]; rp != nil {
+					it.Name, it.RepositoryID = rp.Name, rp.ID
+					if it.Size == 0 && c.LastOKAt != "" {
+						it.Size, it.Estimated = rp.Stats.Size, true
+					}
+				}
+			}
+			out[*c.ConnectionID] = append(out[*c.ConnectionID], it)
+		}
+	}
+	return out
+}
+
+// uriOnConn says whether a repository given as a restic URI lives on an SFTP
+// connection's server (sftp:user@host:/path).
+func uriOnConn(rp *store.Repository, c *store.Connection) bool {
+	if rp.Location != "uri" || c.Kind != "sftp" || c.Config.Host == "" {
+		return false
+	}
+	rest, ok := strings.CutPrefix(rp.Path, "sftp:")
+	if !ok {
+		return false
+	}
+	rest = strings.TrimPrefix(rest, "//")
+	host, _, _ := strings.Cut(rest, ":")
+	host, _, _ = strings.Cut(host, "/")
+	user := ""
+	if u, h, ok := strings.Cut(host, "@"); ok {
+		user, host = u, h
+	}
+	return strings.EqualFold(host, c.Config.Host) && (user == "" || c.Config.User == "" || user == c.Config.User)
 }
 
 type connIn struct {

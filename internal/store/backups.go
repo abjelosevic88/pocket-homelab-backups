@@ -476,14 +476,14 @@ func (s *Store) DeleteJob(ctx context.Context, id int64) error {
 
 // ---------- copies ----------
 
-const copyCols = `id, job_id, name, mode, connection_id, path, target_repository_id, enabled, options, sort_order, last_ok_at, last_error, last_duration_ms, created_at`
+const copyCols = `id, job_id, name, mode, connection_id, path, target_repository_id, enabled, options, sort_order, last_ok_at, last_error, last_duration_ms, last_size, created_at`
 
 func scanCopy(row interface{ Scan(...any) error }) (*Copy, error) {
 	var c Copy
 	var conn, target sql.NullInt64
 	var opts string
 	var enabled int
-	if err := row.Scan(&c.ID, &c.JobID, &c.Name, &c.Mode, &conn, &c.Path, &target, &enabled, &opts, &c.SortOrder, &c.LastOKAt, &c.LastError, &c.LastDurationMS, &c.CreatedAt); err != nil {
+	if err := row.Scan(&c.ID, &c.JobID, &c.Name, &c.Mode, &conn, &c.Path, &target, &enabled, &opts, &c.SortOrder, &c.LastOKAt, &c.LastError, &c.LastDurationMS, &c.LastSize, &c.CreatedAt); err != nil {
 		return nil, notFound(err)
 	}
 	c.ConnectionID = idPtr(conn)
@@ -530,15 +530,20 @@ func (s *Store) SaveCopy(ctx context.Context, c *Copy) error {
 		c.ID, _ = res.LastInsertId()
 		return nil
 	}
-	_, err := s.DB.ExecContext(ctx, `UPDATE copies SET name = ?, mode = ?, connection_id = ?, path = ?, target_repository_id = ?, enabled = ?, options = ?, sort_order = ? WHERE id = ?`,
-		c.Name, c.Mode, nullID(c.ConnectionID), c.Path, nullID(c.TargetRepositoryID), boolInt(c.Enabled), toJSON(c.Options), c.SortOrder, c.ID)
+	// a copy pointed somewhere else forgets the size it measured at the old place
+	_, err := s.DB.ExecContext(ctx, `UPDATE copies SET name = ?, mode = ?, connection_id = ?, path = ?, target_repository_id = ?, enabled = ?, options = ?, sort_order = ?,
+		last_size = CASE WHEN path = ? AND connection_id IS ? AND mode = ? THEN last_size ELSE 0 END WHERE id = ?`,
+		c.Name, c.Mode, nullID(c.ConnectionID), c.Path, nullID(c.TargetRepositoryID), boolInt(c.Enabled), toJSON(c.Options), c.SortOrder,
+		c.Path, nullID(c.ConnectionID), c.Mode, c.ID)
 	return err
 }
 
-// SetCopyResult records how a copy went.
-func (s *Store) SetCopyResult(ctx context.Context, id int64, ok bool, errMsg string, d time.Duration) {
+// SetCopyResult records how a copy went. size is what the copy takes up where
+// it lives (0 = not measured: the last measure is kept).
+func (s *Store) SetCopyResult(ctx context.Context, id int64, ok bool, errMsg string, d time.Duration, size int64) {
 	if ok {
-		_, _ = s.DB.ExecContext(ctx, `UPDATE copies SET last_ok_at = ?, last_error = '', last_duration_ms = ? WHERE id = ?`, Now(), d.Milliseconds(), id)
+		_, _ = s.DB.ExecContext(ctx, `UPDATE copies SET last_ok_at = ?, last_error = '', last_duration_ms = ?, last_size = CASE WHEN ? > 0 THEN ? ELSE last_size END WHERE id = ?`,
+			Now(), d.Milliseconds(), size, size, id)
 		return
 	}
 	_, _ = s.DB.ExecContext(ctx, `UPDATE copies SET last_error = ?, last_duration_ms = ? WHERE id = ?`, errMsg, d.Milliseconds(), id)

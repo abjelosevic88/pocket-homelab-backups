@@ -97,6 +97,20 @@ export interface Connection {
   created_at: string
   updated_at: string
   has_secret: boolean
+  /** What Pocket Backups keeps on (or pulls from) it; only on GET /connections. */
+  stored?: StoredItem[]
+}
+
+/** A repository, mirror copy or pull on a connection. size 0 = not known yet. */
+export interface StoredItem {
+  kind: 'repository' | 'mirror' | 'pull'
+  name: string
+  path: string
+  size: number
+  estimated: boolean
+  at: string
+  repository_id?: number
+  job_id?: number
 }
 
 export interface ConnField { key: string; label: string; secret?: boolean; placeholder?: string; help?: string; optional?: boolean }
