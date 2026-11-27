@@ -124,6 +124,14 @@ backups (through Core, nothing to paste), `backups.run.finished` / `backups.run.
 read whether the box is backed up (`backups:read`). Backups are box-wide: admins manage them; everyone else sees
 whether the box is protected, nothing more.
 
+Pocket Search, Pocket Day and Pocket Hub find Pocket Backups on their own, with nothing to set up in any of them: an
+admin finds the backup jobs and what they protect in Search (`!backups nightly`, `!backup`), the day's backups are
+offered to the journal ("Nightly backup succeeded, 1.2 GB added"), and Hub shows a "Backups" widget with how each
+job went last time, failed and overdue ones first. Someone who is not an admin finds nothing and sees only whether
+the backups are fine. These only read: nothing in them starts a backup, a restore or a prune, or changes a job, and
+a quick line typed in Hub cannot be kept here. The routes are in
+[docs/api.md](docs/api.md#pocket-search-pocket-day-and-pocket-hub).
+
 ## Built with
 
 Go, chi, SQLite (modernc), React 19, Vite; restic 0.19 and rclone 1.74 in the image. Works alone, with Backrest

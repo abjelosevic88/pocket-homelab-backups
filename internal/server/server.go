@@ -275,6 +275,11 @@ func (s *Server) Router() http.Handler {
 			r.Get("/overview", s.handleOverview)
 			r.Get("/widget", s.handleWidget)
 
+			// Pocket Search, Day and Hub (capabilities.go): read only
+			r.Get("/pocket/search", core.SearchHandler(s.pocketSearch))
+			r.Get("/pocket/day/{date}", core.DayHandler(s.pocketDay))
+			r.Get("/pocket/widget", core.WidgetHandler(s.pocketWidget))
+
 			r.Get("/connections", s.handleListConnections)
 			r.Get("/connections/kinds", s.handleConnKinds)
 			r.Get("/connections/importable", s.handleImportable)
@@ -480,11 +485,12 @@ func (s *Server) registerWithCore(ctx context.Context) error {
 	m := core.Manifest{
 		Slug: "backups", Name: "Pocket Backups",
 		Description: "Backs up the whole box and says plainly whether it is safe: databases dumped consistently, folders snapshotted with restic, copies to a NAS, Google Drive, Backblaze, S3 or Pocket Files, an offline USB disk, restore of any file from any night, a coverage check for new apps, and Backrest underneath if you have it.",
-		Icon:        "/favicon.svg", Version: Version,
+		Icon:        "/favicon.svg", Category: "System", Version: Version,
 		URL: s.cfg.CoreAppURL, PublicURL: s.cfg.BaseURL, HealthPath: "/healthz", EnvPrefix: "BACKUPS",
-		Publishes: []string{"backups.run.finished", "backups.run.failed"},
-		Offers:    linkOffers,
-		Uses:      linkUses,
+		Publishes:    []string{"backups.run.finished", "backups.run.failed"},
+		Offers:       linkOffers,
+		Uses:         linkUses,
+		Capabilities: capabilities,
 	}
 	if s.cfg.BaseURL != "" {
 		m.OIDC = &core.OIDCRequest{RedirectURIs: []string{s.cfg.BaseURL + "/api/v1/auth/oidc/callback"}}

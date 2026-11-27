@@ -631,6 +631,36 @@ func (s *Store) ListRuns(ctx context.Context, f RunFilter) ([]Run, error) {
 	return out, rows.Err()
 }
 
+// RunsStarted returns the runs of the kinds that started in [from, to)
+// (stored times), oldest first, without logs.
+func (s *Store) RunsStarted(ctx context.Context, from, to time.Time, kinds string) ([]Run, error) {
+	q := `SELECT ` + runCols + ` FROM runs r LEFT JOIN jobs j ON j.id = r.job_id LEFT JOIN repositories p ON p.id = r.repository_id
+		WHERE r.started_at >= ? AND r.started_at < ?`
+	// stored times may carry fractions ("…00:00:00.5Z" sorts before
+	// "…00:00:00Z"): ask a second wider, keep the exact range below
+	args := []any{from.Add(-time.Second).UTC().Format(time.RFC3339), to.Add(time.Second).UTC().Format(time.RFC3339)}
+	if kinds != "" {
+		q += ` AND r.kind IN (` + placeholders(strings.Split(kinds, ","), &args) + `)`
+	}
+	q += ` ORDER BY r.started_at, r.id LIMIT 500`
+	rows, err := s.DB.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Run{}
+	for rows.Next() {
+		r, err := scanRun(rows, false)
+		if err != nil {
+			return nil, err
+		}
+		if at := ParseTime(r.StartedAt); !at.Before(from) && at.Before(to) {
+			out = append(out, *r)
+		}
+	}
+	return out, rows.Err()
+}
+
 func placeholders(vals []string, args *[]any) string {
 	ph := make([]string, 0, len(vals))
 	for _, v := range vals {

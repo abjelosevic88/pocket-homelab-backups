@@ -28,6 +28,12 @@ type harness struct {
 
 func newHarness(t *testing.T) (*harness, *Server) {
 	t.Helper()
+	return newHarnessWith(t, nil)
+}
+
+// newHarnessWith lets a test change the configuration before the server starts.
+func newHarnessWith(t *testing.T, tweak func(*config.Config)) (*harness, *Server) {
+	t.Helper()
 	// the shell may carry another Pocket app's settings (Pocket AI's CORE_*,
 	// BASE_URL, ADMIN_*, NOTIFY_*): a test must never register with the live
 	// Core, rotate its app token or send real notifications
@@ -45,6 +51,9 @@ func newHarness(t *testing.T) (*harness, *Server) {
 	cfg.TmpDir = cfg.DataDir + "/tmp"
 	cfg.CacheDir = cfg.DataDir + "/cache"
 	cfg.BrowseRoot = "/"
+	if tweak != nil {
+		tweak(cfg)
+	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	st, err := store.Open(cfg.DBPath, log)
 	if err != nil {

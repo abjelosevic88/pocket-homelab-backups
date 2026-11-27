@@ -28,6 +28,16 @@ var linkUses = []core.Use{
 	{App: "files", Scopes: []string{"files:read", "files:write"}, Reason: "Keep backups (an encrypted restic repository, or a copy of one) in your Pocket Files"},
 }
 
+// capabilities: what Pocket Search, Pocket Day and Pocket Hub may ask here
+// (docs/capabilities.md in pocket-homelab-core), answered in capabilities.go.
+// Backups are the box's: only an admin gets jobs, sources and runs; anyone
+// else gets what /overview already tells them (in the widget) or nothing.
+var capabilities = core.Capabilities{
+	Search: &core.Searchable{What: "The backup jobs and what they protect, by name (admins only)", Kinds: []string{"job", "source"}, Bangs: []string{"backups", "backup"}},
+	Day:    &core.DayFeed{Label: "Backups", One: "backup", Many: "backups", What: "The backups that ran that day, how they went and how much they added (admins only)"},
+	Widget: &core.Widget{Title: "Backups", What: "How each backup went last time: failed ones first, then overdue ones"},
+}
+
 type linkRoute struct {
 	methods string
 	path    *regexp.Regexp
@@ -45,6 +55,9 @@ var linkRoutes = []linkRoute{
 var errLinkScope = errors.New("outside the link's scope")
 
 func linkAllows(scopes []string, r *http.Request) bool {
+	if capabilities.LinkAllows(scopes, r) {
+		return true
+	}
 	for _, lr := range linkRoutes {
 		if !strings.Contains(" "+lr.methods+" ", " "+r.Method+" ") || !lr.path.MatchString(r.URL.Path) {
 			continue

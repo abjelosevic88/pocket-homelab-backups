@@ -1195,16 +1195,8 @@ func (s *Server) health(ctx context.Context, jobs []jobView) (string, []issue) {
 		} else if v.Last != nil && v.Last.Status == "warning" {
 			issues = append(issues, issue{"warning", v.Name + " finished with warnings", link})
 		}
-		if v.Schedule != "" {
-			c, err := engine.ParseCron(v.Schedule)
-			if err == nil {
-				// two scheduled times without a good run = overdue
-				prev := c.Next(time.Now().Add(-49 * time.Hour))
-				second := c.Next(prev)
-				if second.Before(time.Now()) && (v.LastGood == nil || store.ParseTime(v.LastGood.FinishedAt).Before(prev)) {
-					issues = append(issues, issue{"error", v.Name + " has not run successfully since " + localDay(prev), link})
-				}
-			}
+		if prev, late := overdue(v, time.Now()); late {
+			issues = append(issues, issue{"error", v.Name + " has not run successfully since " + localDay(prev), link})
 		}
 		if v.Config.Pull == nil && v.Schedule == "" && v.LastGood != nil && v.RepositoryID != nil {
 			if age := time.Since(store.ParseTime(v.LastGood.FinishedAt)); age > 35*24*time.Hour {
@@ -1241,6 +1233,21 @@ func (s *Server) health(ctx context.Context, jobs []jobView) (string, []issue) {
 		health = "empty"
 	}
 	return health, issues
+}
+
+// overdue reports whether a scheduled job let two of its times go by
+// without a good run, and the first of those times.
+func overdue(v jobView, now time.Time) (time.Time, bool) {
+	if v.Schedule == "" {
+		return time.Time{}, false
+	}
+	c, err := engine.ParseCron(v.Schedule)
+	if err != nil {
+		return time.Time{}, false
+	}
+	prev := c.Next(now.Add(-49 * time.Hour))
+	second := c.Next(prev)
+	return prev, second.Before(now) && (v.LastGood == nil || store.ParseTime(v.LastGood.FinishedAt).Before(prev))
 }
 
 func localDay(t time.Time) string { return t.Local().Format("Mon 2 Jan 15:04") }

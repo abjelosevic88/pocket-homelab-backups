@@ -1,7 +1,7 @@
 # API
 
 JSON over HTTP under `/api/v1`. Authenticate with a session cookie, or `Authorization: Bearer pbk_…` (Settings →
-Tokens), or a Pocket Core token. Everything except `/overview` and `/widget` needs an admin.
+Tokens), or a Pocket Core token. Everything except `/overview`, `/widget` and the `/pocket/…` routes needs an admin.
 
 | | |
 |---|---|
@@ -29,6 +29,21 @@ Tokens), or a Pocket Core token. Everything except `/overview` and `/widget` nee
 | `POST /hooks/backrest` | what Backrest's hooks call (see [backrest.md](backrest.md)) |
 | `GET /browse?path=&dirs=1` | the box's folders (picker) |
 | `GET/PUT /integrations` | Homepage report files |
+
+## Pocket Search, Pocket Day and Pocket Hub
+
+The shared routes every Pocket app answers in the same shape (`docs/capabilities.md` in Pocket Core). They only
+read. A Pocket Core link token with `pocket:search`, `pocket:day` or `pocket:widget` reaches its one route and
+`/auth/me`, nothing else; `backups:read` does not open them.
+
+| | |
+|---|---|
+| `GET /pocket/search?q=&limit=` | jobs and sources by name (a source also by its app): `kind` `job` or `source`, `snippet` = when it runs · how the last run went · size; jobs open `/jobs/{id}`, sources `/sources` |
+| `GET /pocket/day/{YYYY-MM-DD}[?tz=]` | the backups and cloud pulls that started that day: `kind` `succeeded`, `failed`, `stopped` or `running`, `sub` = job · size added, a summary such as "Nightly backup succeeded, 1.2 GB added" |
+| `GET /pocket/widget` | each job that is on with its last run, failed first, then overdue, then the rest; `line` such as "All backups fine, last at 03:12" or "Nightly failed last night" |
+
+Search and day answer only an admin (empty for anyone else); the widget gives anyone else one line, whether the
+backups are fine, as `/overview` does. Snapshots are not searched: that would read every repository with restic.
 
 ## Homepage
 
